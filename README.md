@@ -4,11 +4,11 @@ A small-team nonprofit outreach CRM built from [hunzaarshadkhan/properlypr-nonpr
 
 This release adds the meeting's immediate requirements: CSV downloads, CSV uploads with automatic/editable field mapping, and direct **Update status** actions. It also adds a Railway production server with authentication and a persistent SQLite database. Email and SMS sending are not included; reps send externally and record the actual outcome.
 
-Live instance: **https://crm-production-2467.up.railway.app**. The CRM requires a team login. The initial credentials are stored privately in `.local/admin-credentials.json` on the deployment workstation. Production starts empty pending the actual workbook.
+Live instance: **https://crm-production-2467.up.railway.app**. The CRM uses **Continue with Google**, restricted to approved Gmail or Google Workspace accounts. Shared admin/password login is removed in this release. Production starts empty pending the actual workbook.
 
 ## Run locally
 
-Use Node.js 24 or newer. Application runtime, build, and API tests require no external packages.
+Use Node.js 24 or newer and install pinned dependencies with `pnpm install --frozen-lockfile`. Production Google login uses the official `google-auth-library`; the loopback demo still uses a local developer identity.
 
 ```sh
 node build.mjs
@@ -21,7 +21,7 @@ Open **http://127.0.0.1:8787**. Development binds to loopback, supplies a demo i
 npm test
 ```
 
-Tests cover workflow timing, notes, revisions and retries, CSV parsing/mapping/validation, duplicate handling, imports, formula-safe exports, HTTP authentication, identity spoofing, CSRF, login throttling, password rotation, and persisted organizations and notes across server restart.
+Tests cover workflow timing, notes, revisions and retries, CSV parsing/mapping/validation, duplicate handling, imports, formula-safe exports, HTTP authentication, identity spoofing, CSRF, login throttling, Google token signatures/audience/issuer/expiry, state/nonce/PKCE, callback replay, approved emails, logout revocation, and persisted sessions, organizations and notes across server restart. Google tests use locally signed tokens and a local token/certificate server; they do not require real Google credentials.
 
 ## Daily work and status updates
 
@@ -47,16 +47,16 @@ Each record retains its filename, source row, original cell values, import batch
 
 ## Railway deployment
 
-Railway builds the included `Dockerfile` using Node 24, listens on `0.0.0.0:$PORT`, and checks `/healthz`. The runtime has no third-party dependencies. SQL migrations run transactionally at startup, after the volume is mounted. The existing SQLite schema is retained, with foreign keys, WAL, full synchronous writes, and a busy timeout.
+Railway builds the included `Dockerfile` using Node 24, listens on `0.0.0.0:$PORT`, and checks `/healthz`. The container installs the pinned production Google authentication library using the lockfile. SQL migrations run transactionally at startup, after the volume is mounted. The existing SQLite schema is retained, with foreign keys, WAL, full synchronous writes, and a busy timeout.
 
 1. Create a Railway project and empty `crm` service. Attach a persistent **volume at `/data`**. Use one replica. Database storage must not live in the container's ephemeral filesystem.
-2. Generate the initial account locally:
+2. In Google Cloud → Google Auth Platform, configure the consent screen and create an OAuth client with type **Web application**. Register the exact callback `<APP_ORIGIN>/auth/google/callback`. For the current instance:
 
-   ```sh
-   node scripts/create-user.mjs admin
+   ```text
+   https://crm-production-2467.up.railway.app/auth/google/callback
    ```
 
-   This creates `.local/admin-credentials.json` with a random password, a scrypt hash configuration, and a session secret. The file is mode 0600 and excluded from Git and container uploads. Read it privately; do not commit it or paste its contents into tickets.
+   Keep the downloaded OAuth JSON private. Configure External audience if approved users include personal Gmail accounts; Internal is suitable only for users within the owning Google Workspace organization. CRM access is always checked against its own approved-email list.
 
 3. Generate a Railway public domain targeting port 8080. Configure these private service variables:
 
@@ -64,17 +64,22 @@ Railway builds the included `Dockerfile` using Node 24, listens on `0.0.0.0:$POR
    | --- | --- |
    | `APP_ORIGIN` | Exact public HTTPS origin, without a trailing slash |
    | `CRM_DATABASE_PATH` | `/data/crm.sqlite` |
-   | `CRM_USERS_JSON` | Value generated in the credential file (JSON array of usernames and password hashes) |
-   | `SESSION_SECRET` | Random secret generated in the credential file, at least 32 characters |
+   | `GOOGLE_CLIENT_ID` | Web application OAuth client ID |
+   | `GOOGLE_CLIENT_SECRET` | OAuth client secret, configured privately |
+   | `CRM_ALLOWED_EMAILS` | Comma-separated approved Gmail / Google Workspace email addresses |
    | `NODE_ENV` | `production` |
    | `PORT` | `8080` |
 
 4. Deploy this checkout with `railway up` or connect the service to the branch containing these changes. `railway.json` configures the Dockerfile, healthcheck, and restart behavior. A missing volume, invalid login configuration, or missing HTTPS origin fails startup rather than exposing an unsecured or nonpersistent workspace.
 5. Visit the HTTPS origin, sign in, and check `/healthz`. A production database starts empty. Import real records only after their mapping and provenance have been reviewed.
 
-The Railway server discards caller-supplied identity and privileged-import headers. It assigns the verified username to notes and activities. Passwords are stored as scrypt hashes; session cookies are signed, Secure on HTTPS, HttpOnly, SameSite=Strict, and expire after eight hours. Mutation requests must come from `APP_ORIGIN`. Login attempts are rate-limited in memory. There is no public signup or password-reset flow.
+The Railway server discards caller-supplied identity and privileged-import headers. Google login uses an authorization code with PKCE, a browser-bound random state, and a nonce. The Google library verifies the ID token signature, issuer, audience and expiry; the CRM also checks nonce, verified email, Gmail/Workspace ownership and the approved-email list. The callback is single-use and expires after ten minutes. Google access and refresh tokens are not retained. Only `openid email profile` scopes are requested.
 
-Generate a separate credential file for each rep using `node scripts/create-user.mjs rep-name`, append only that generated user object to the existing `CRM_USERS_JSON` array, and retain the existing session secret. Changing a user's hash invalidates that user's sessions; removing the user disables their access. All configured users currently share CRM editing privileges. Roles and self-service account administration are future work.
+The database stores the stable Google `sub`, verified email and display name in `crm_users`. Notes and activities are attributed to the verified email. Session cookies contain opaque random tokens; only their hashes are stored in `auth_sessions`. Cookies are Secure on HTTPS, HttpOnly, SameSite=Lax (needed for Google's top-level callback), and expire after eight hours. All application writes require `APP_ORIGIN`. Logout deletes the server session. Pending sign-ins and sessions survive restarts. Login starts are rate-limited in memory. Secrets, authorization codes and token responses are never logged.
+
+To add or remove access, edit `CRM_ALLOWED_EMAILS` and redeploy. Removing an email disables its existing sessions as well. All approved users currently share editing privileges; role administration is future work. An approved email already bound to one Google `sub` cannot silently be taken over by another Google account. Non-Gmail Google accounts without a verified Workspace identity require a separate email-verification flow and are not enabled by this release.
+
+`CRM_USERS_JSON`, `SESSION_SECRET`, and old `.local/admin-credentials.json` values are no longer used. Old password sessions are rejected. Delete obsolete Railway password variables after the successful Google deployment. Test actual account selection/consent with an approved user before calling the full production sign-in accepted; automated fixtures cover protocol verification but do not impersonate a real Google user.
 
 A volume-backed service has brief downtime on redeployment and cannot scale horizontally. See [Railway volumes](https://docs.railway.com/volumes) and [healthchecks](https://docs.railway.com/deployments/healthchecks). Move to a server database such as PostgreSQL if multiple application replicas become necessary.
 
@@ -122,10 +127,10 @@ Recommended order after the first import:
 | `worker.js` | API validation, revisions, notes, outcomes, privileged legacy import |
 | `csv.js`, `csv-api.js` | Shared CSV codec/mapping and transactional API import/export |
 | `workflow.js`, `cadence.js` | State transitions and Eastern business-day scheduling |
-| `server/` | Railway HTTP server, verified identities, login and signed sessions |
+| `server/` | Railway HTTP server, Google OAuth verification, approved accounts and revocable sessions |
 | `schema.ts`, `drizzle/` | SQLite schema and versioned migrations |
 | `dev/` | Loopback demo server, SQLite adapter and fictional data |
-| `scripts/` | Local account bootstrap and consistent SQLite backup |
+| `scripts/` | Consistent SQLite backup and Railway source deployment |
 | `Dockerfile`, `railway.json` | Production container and Railway deployment configuration |
 
 For schema changes, install development dependencies using `pnpm install --frozen-lockfile`, edit `schema.ts`, run `pnpm run db:generate`, and commit migrations and metadata. The original Cloudflare Worker build remains supported; a host using it directly must provide its own trusted identity gateway. Railway uses `server/server.mjs` instead. Original privileged JSON import remains inaccessible through the Railway gateway; team users use the validated CSV flow.

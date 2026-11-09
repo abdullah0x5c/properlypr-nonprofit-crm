@@ -1,36 +1,61 @@
-import { randomBytes, scryptSync, timingSafeEqual, createHmac, createHash } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 
-export function passwordHash(password) {
-  const salt = randomBytes(16).toString("hex");
-  return salt + ":" + scryptSync(password, salt, 64).toString("hex");
+const now = () => Math.floor(Date.now() / 1000);
+const opaque = () => randomBytes(32).toString("base64url");
+const hash = value => createHash("sha256").update(value).digest("hex");
+const validOpaque = value => typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
+
+export function approvedEmails(raw) {
+  const emails = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
+  if (!emails.length || emails.length > 100 || emails.some(email => typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())))
+    throw Error("Set CRM_ALLOWED_EMAILS to a comma-separated list of approved Google email addresses.");
+  return new Set(emails.map(email => email.trim().toLowerCase()));
 }
-export function authenticate(users, username, password) {
-  const user = users.find(u => u.username === username);
-  const stored = user?.passwordHash || "00000000000000000000000000000000:" + "0".repeat(128);
-  const [salt, hash] = stored.split(":");
-  const actual = scryptSync(password, salt, 64);
-  return timingSafeEqual(actual, Buffer.from(hash, "hex")) && user ? user : null;
+
+export async function beginLogin(db) {
+  const state = opaque(), nonce = opaque(), verifier = opaque();
+  await db.batch([
+    db.prepare("DELETE FROM auth_flows WHERE expires<=?").bind(now()),
+    db.prepare("DELETE FROM auth_sessions WHERE expires<=?").bind(now()),
+    db.prepare("INSERT INTO auth_flows(state_hash,nonce,verifier,expires) VALUES(?,?,?,?)").bind(hash(state), nonce, verifier, now() + 600),
+  ]);
+  return {state, nonce, codeChallenge: createHash("sha256").update(verifier).digest("base64url")};
 }
-export function validateUsers(users) {
-  if (!Array.isArray(users) || !users.length || users.length > 100 || users.some(u => !/^[a-zA-Z0-9@._+-]{1,120}$/.test(u.username || "") || !/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(u.passwordHash || "")) || new Set(users.map(u => u.username)).size !== users.length)
-    throw Error("CRM_USERS_JSON must contain unique usernames and scrypt password hashes. Use scripts/create-user.mjs.");
-  return users;
+
+export async function consumeLogin(db, state, cookieState) {
+  if (!validOpaque(state) || state !== cookieState) return null;
+  // Delete atomically before exchanging the code: a callback can be used only once.
+  return await db.prepare("DELETE FROM auth_flows WHERE state_hash=? AND expires>? RETURNING nonce,verifier").bind(hash(state), now()).first() || null;
 }
-const version = u => createHash("sha256").update(u.passwordHash).digest("hex").slice(0,16);
-const signature = (payload, secret) => createHmac("sha256", secret).update(payload).digest("base64url");
-export function makeSession(user, secret) {
-  const data = Buffer.from(JSON.stringify({sub:user.username, v:version(user), exp:Math.floor(Date.now()/1000)+8*3600})).toString("base64url");
-  return data + "." + signature(data, secret);
+
+export function googleIdentity(claims, nonce, allowed) {
+  if (!claims || claims.nonce !== nonce || claims.email_verified !== true ||
+      typeof claims.sub !== "string" || !/^[a-zA-Z0-9_-]{1,255}$/.test(claims.sub) ||
+      typeof claims.email !== "string" || !allowed.has(claims.email.toLowerCase())) return null;
+  const email = claims.email.toLowerCase();
+  // Google must be authoritative for the allowlisted email (Gmail or Workspace).
+  if (!email.endsWith("@gmail.com") && !(typeof claims.hd === "string" && claims.hd)) return null;
+  return {googleSub:claims.sub, email, name:typeof claims.name === "string" ? claims.name.slice(0,240) : email};
 }
-export function readSession(token, secret, users) {
-  try {
-    if (typeof token !== "string" || token.length > 1000) return null;
-    const [data, sig, extra] = token.split(".");
-    if (!sig || extra || !/^[\w-]+$/.test(data)) return null;
-    const expected = Buffer.from(signature(data, secret));
-    const actual = Buffer.from(sig);
-    if (actual.length !== expected.length || !timingSafeEqual(expected, actual)) return null;
-    const payload = JSON.parse(Buffer.from(data, "base64url").toString());
-    return users.find(u => u.username === payload.sub && payload.v === version(u) && payload.exp > Date.now()/1000) || null;
-  } catch { return null; }
+
+export async function makeSession(db, identity) {
+  const existing = await db.prepare("SELECT google_sub FROM crm_users WHERE email=?").bind(identity.email).first();
+  if (existing && existing.google_sub !== identity.googleSub) return null;
+  const token = opaque();
+  await db.batch([
+    db.prepare("INSERT INTO crm_users(google_sub,email,name,last_seen) VALUES(?,?,?,?) ON CONFLICT(google_sub) DO UPDATE SET email=excluded.email,name=excluded.name,last_seen=excluded.last_seen")
+      .bind(identity.googleSub, identity.email, identity.name, now()),
+    db.prepare("INSERT INTO auth_sessions(token_hash,google_sub,expires) VALUES(?,?,?)").bind(hash(token), identity.googleSub, now() + 28800),
+  ]);
+  return token;
+}
+
+export async function readSession(db, token, allowed) {
+  if (!validOpaque(token)) return null;
+  const user = await db.prepare("SELECT u.google_sub,u.email,u.name FROM auth_sessions s JOIN crm_users u ON u.google_sub=s.google_sub WHERE s.token_hash=? AND s.expires>?").bind(hash(token), now()).first();
+  return user && allowed.has(user.email) ? user : null;
+}
+
+export async function endSession(db, token) {
+  if (validOpaque(token)) await db.prepare("DELETE FROM auth_sessions WHERE token_hash=?").bind(hash(token)).run();
 }
