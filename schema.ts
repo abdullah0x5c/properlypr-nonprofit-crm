@@ -21,6 +21,7 @@ export const crmUsers = sqliteTable("crm_users", {
   email: text().notNull().unique(),
   name: text().notNull(),
   lastSeen: integer("last_seen").notNull(),
+  hostedDomain: text("hosted_domain").notNull().default(""),
 });
 export const authSessions = sqliteTable("auth_sessions", {
   tokenHash: text("token_hash").primaryKey(),

@@ -5,11 +5,12 @@ export function createGoogleProvider({clientId, clientSecret, redirectUri}, clie
     throw Error("Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from a Google Web application OAuth client.");
   const client = clientFactory({clientId, clientSecret, redirectUri, transporterOptions:{timeout:10000, retry:false}});
   return {
-    authorizationUrl({state, nonce, codeChallenge}) {
+    authorizationUrl({state, nonce, codeChallenge, hostedDomain}) {
       return client.generateAuthUrl({
         scope:["openid", "email", "profile"], response_type:"code", access_type:"online",
         prompt:"select_account", state, nonce,
         code_challenge:codeChallenge, code_challenge_method:"S256",
+        ...(hostedDomain ? {hd:hostedDomain} : {}),
       });
     },
     async verifyCode(code, verifier) {

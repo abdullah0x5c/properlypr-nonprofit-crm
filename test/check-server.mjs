@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { once } from "node:events";
-import { approvedEmails, readSession, makeSession } from "../server/auth.mjs";
+import { approvedEmails, accessPolicy, readSession, makeSession } from "../server/auth.mjs";
 import { createCRMServer } from "../server/server.mjs";
 import { openDatabase } from "../dev/database.mjs";
 import { googleFixture } from "./google-fixture.mjs";
@@ -49,7 +49,7 @@ try {
   const cookie=raw.split(";")[0];
   assert.equal((await finish(first)).status,400,"callbacks must be single use");
   assert.equal((await request("/api/directory",{cookie})).status,200);
-  const token=cookie.split("=")[1];assert.ok(await readSession(db,token,approvedEmails(allowedEmails)));
+  const token=cookie.split("=")[1];assert.ok(await readSession(db,token,accessPolicy({allowedEmails})));
   assert.ok(db.prepare("SELECT token_hash FROM auth_sessions").first().token_hash!==token,"database stores hashes rather than session secrets");
   const wrongCookie=cookie.slice(0,-1)+(cookie.endsWith("a")?"b":"a");assert.equal((await request("/api/directory",{cookie:wrongCookie})).status,401);
   assert.equal((await request("/api/org",{cookie,data:{},headers:{Origin:"https://evil.example"}})).status,403);
@@ -79,8 +79,30 @@ try {
   const workspace=await flow();
   assert.equal((await finish(workspace,{sub:"workspace-user",email:"rep@example.org",hd:"example.org"})).status,303);
   db.prepare("UPDATE auth_sessions SET expires=0").run();
-  assert.equal(await readSession(db,current.split("=")[1],approvedEmails(["rep@gmail.com"])),null,"expired sessions are rejected");
+  assert.equal(await readSession(db,current.split("=")[1],accessPolicy({allowedEmails:["rep@gmail.com"]})),null,"expired sessions are rejected");
   for(let i=0;i<21;i++) await request("/auth/google");assert.equal((await request("/auth/google")).status,429);
   assert.throws(()=>approvedEmails(""),/CRM_ALLOWED_EMAILS/);
+  assert.throws(()=>accessPolicy({allowedDomain:"*.properlypr.com"}),/exact/);
+  assert.throws(()=>accessPolicy({allowedDomain:"properlypr.com",allowedEmails:["rep@gmail.com"]}),/not both/);
+  await stop();db=openDatabase(filename);server=createCRMServer({db,origin,allowedDomain:"properlypr.com",google});await start();
+  assert.equal((await request("/api/directory",{cookie:current})).status,401,"an old personal-account session cannot bypass domain policy");
+  const domainFlow=await flow();assert.equal(domainFlow.url.searchParams.get("hd"),"properlypr.com");
+  const domainLogin=await finish(domainFlow,{sub:"properlypr-first",email:"first@properlypr.com",hd:"properlypr.com"});
+  assert.equal(domainLogin.status,303,"any verified member of the exact Workspace can sign in");
+  const domainCookie=domainLogin.headers.getSetCookie().find(v=>v.startsWith("crm_session=")).split(";")[0];
+  assert.equal((await request("/api/directory",{cookie:domainCookie})).status,200);
+  assert.equal((await finish(await flow(),{sub:"properlypr-second",email:"second@properlypr.com",hd:"properlypr.com"})).status,303);
+  for(const claims of [
+    {email:"outsider@gmail.com",hd:"properlypr.com"},
+    {email:"rep@properlypr.com.evil.example",hd:"properlypr.com"},
+    {email:"rep@sub.properlypr.com",hd:"properlypr.com"},
+    {email:"rep@notproperlypr.com",hd:"properlypr.com"},
+    {email:"rep@properlypr.com",hd:undefined},
+    {email:"rep@properlypr.com",hd:"other.example"},
+    {email:"rep@properlypr.com",hd:"properlypr.com",email_verified:false},
+  ]) assert.equal((await finish(await flow(),claims)).status,403,"both verified email domain and signed Workspace domain must match exactly");
+  db.prepare("UPDATE crm_users SET hosted_domain='other.example' WHERE google_sub='properlypr-first'").run();
+  assert.equal((await request("/api/directory",{cookie:domainCookie})).status,401,"sessions recheck the verified Workspace domain");
   console.log("Passed Google authorization code/PKCE flow with real signed fixture tokens, signature/audience/issuer/expiry verification, nonce/state/replay checks, allowlisting, identity binding, legacy-login removal, CSRF, persisted sessions/data, logout revocation and throttling.");
+  console.log("Passed exact properlypr.com Workspace access, multiple team members, Google domain hint, spoofed/similar/subdomain rejection, verified-domain enforcement and session policy checks.");
 } finally {await stop();await fixture.close();rmSync(folder,{recursive:true,force:true});}

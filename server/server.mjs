@@ -5,15 +5,15 @@ import { dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { openDatabase } from "../dev/database.mjs";
 import app from "../dist/server/index.js";
-import { approvedEmails, beginLogin, consumeLogin, googleIdentity, makeSession, readSession, endSession } from "./auth.mjs";
+import { accessPolicy, beginLogin, consumeLogin, googleIdentity, makeSession, readSession, endSession } from "./auth.mjs";
 import { createGoogleProvider } from "./google.mjs";
 
-function loginPage(error = "") {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · ProperlyPR</title><style>body{font:16px/1.5 system-ui;background:#faf9f5;color:#183f34;max-width:400px;margin:10vh auto;padding:24px}.google{display:block;text-align:center;text-decoration:none;padding:12px;color:#1f1f1f;background:white;border:1px solid #747775;border-radius:6px;font:500 16px/1.5 Arial,sans-serif;margin:28px 0}p[role]{color:#9e2929}small{color:#56695f}</style></head><body><p>PROPERLYPR / TEAM WORKSPACE</p><h1>Welcome back</h1><p>Sign in with your approved Google account to manage nonprofit outreach.</p><p role="alert">${error}</p><a class="google" href="/auth/google">Continue with Google</a><small>Access is limited to approved team members.</small></body></html>`;
+function loginPage(error = "", domain = "") {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · ProperlyPR</title><style>body{font:16px/1.5 system-ui;background:#faf9f5;color:#183f34;max-width:400px;margin:10vh auto;padding:24px}.google{display:block;text-align:center;text-decoration:none;padding:12px;color:#1f1f1f;background:white;border:1px solid #747775;border-radius:6px;font:500 16px/1.5 Arial,sans-serif;margin:28px 0}p[role]{color:#9e2929}small{color:#56695f}</style></head><body><p>PROPERLYPR / TEAM WORKSPACE</p><h1>Welcome back</h1><p>${domain ? "Sign in with your @" + domain + " Google Workspace account." : "Sign in with your approved Google account to manage nonprofit outreach."}</p><p role="alert">${error}</p><a class="google" href="/auth/google">Continue with Google</a><small>${domain ? "Access is limited to " + domain + " team members." : "Access is limited to approved team members."}</small></body></html>`;
 }
 
-export function createCRMServer({ db, origin, allowedEmails, google }) {
-  const allowed = approvedEmails(allowedEmails);
+export function createCRMServer({ db, origin, allowedEmails, allowedDomain, google }) {
+  const allowed = accessPolicy({allowedEmails, allowedDomain});
   if (!google || typeof google.authorizationUrl !== "function" || typeof google.verifyCode !== "function") throw Error("Configure Google OAuth before starting the CRM.");
   const base = new URL(origin);
   if (base.origin !== origin || !["http:","https:"].includes(base.protocol)) throw Error("APP_ORIGIN must be an http(s) origin without a trailing slash.");
@@ -22,6 +22,7 @@ export function createCRMServer({ db, origin, allowedEmails, google }) {
   const flowCookieName = secure ? "__Host-crm_oauth" : "crm_oauth";
   // Lax permits Google's top-level callback; Origin checks protect all application writes.
   const cookie = (name, token, maxAge) => `${name}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
+  const renderLogin = error => loginPage(error, allowed.domain);
   const attempts = new Map();
   let totalAttempts = 0, windowStart = Date.now();
   const server = http.createServer(async (incoming, outgoing) => {
@@ -49,7 +50,7 @@ export function createCRMServer({ db, origin, allowedEmails, google }) {
       if (path === "/login") {
         if (incoming.method !== "GET") return send(405, "Use Continue with Google to sign in.");
         if (await readSession(db, token, allowed)) return redirect("/");
-        return send(200, loginPage(), "text/html; charset=utf-8");
+        return send(200, renderLogin(), "text/html; charset=utf-8");
       }
       if (path === "/auth/google" && incoming.method === "GET") {
         const now = Date.now();
@@ -60,29 +61,29 @@ export function createCRMServer({ db, origin, allowedEmails, google }) {
         totalAttempts++; attempts.set(ip, count + 1);
         const flow = await beginLogin(db);
         outgoing.setHeader("Set-Cookie", cookie(flowCookieName, flow.state, 600));
-        return redirect(google.authorizationUrl(flow));
+        return redirect(google.authorizationUrl({...flow, hostedDomain:allowed.domain}));
       }
       if (path === "/auth/google/callback" && incoming.method === "GET") {
         outgoing.setHeader("Set-Cookie", cookie(flowCookieName, "", 0));
         const state = url.searchParams.getAll("state");
         const flow = state.length === 1 ? await consumeLogin(db, state[0], getCookie(flowCookieName)) : null;
-        if (!flow) return send(400, loginPage("This sign-in request expired or is invalid. Please try again."), "text/html; charset=utf-8");
-        if (url.searchParams.has("error")) return send(401, loginPage("Google sign-in was cancelled. You can try again."), "text/html; charset=utf-8");
+        if (!flow) return send(400, renderLogin("This sign-in request expired or is invalid. Please try again."), "text/html; charset=utf-8");
+        if (url.searchParams.has("error")) return send(401, renderLogin("Google sign-in was cancelled. You can try again."), "text/html; charset=utf-8");
         const codes = url.searchParams.getAll("code");
-        if (codes.length !== 1 || !codes[0] || codes[0].length > 4096) return send(400, loginPage("Google did not return a valid sign-in response. Please try again."), "text/html; charset=utf-8");
+        if (codes.length !== 1 || !codes[0] || codes[0].length > 4096) return send(400, renderLogin("Google did not return a valid sign-in response. Please try again."), "text/html; charset=utf-8");
         try {
           const claims = await google.verifyCode(codes[0], flow.verifier);
           const identity = googleIdentity(claims, flow.nonce, allowed);
-          if (!identity) return send(403, loginPage("This Google account is not approved. Use an approved Gmail or Google Workspace account, or ask your CRM administrator for access."), "text/html; charset=utf-8");
+          if (!identity) return send(403, renderLogin(allowed.domain ? "Use a verified @" + allowed.domain + " Google Workspace account to sign in." : "This Google account is not approved. Use an approved Gmail or Google Workspace account, or ask your CRM administrator for access."), "text/html; charset=utf-8");
           const session = await makeSession(db, identity);
-          if (!session) return send(403, loginPage("This account needs an administrator to review its identity before sign-in."), "text/html; charset=utf-8");
+          if (!session) return send(403, renderLogin("This account needs an administrator to review its identity before sign-in."), "text/html; charset=utf-8");
           await endSession(db, token);
           outgoing.setHeader("Set-Cookie", [cookie(flowCookieName, "", 0), cookie(cookieName, session, 28800)]);
           return redirect("/");
         } catch {
           // OAuth library errors can contain the client secret or authorization code; never log them.
           console.error("Google sign-in verification failed.");
-          return send(502, loginPage("We couldn’t verify your Google sign-in. Please try again."), "text/html; charset=utf-8");
+          return send(502, renderLogin("We couldn’t verify your Google sign-in. Please try again."), "text/html; charset=utf-8");
         }
       }
       if (path === "/logout" && incoming.method === "POST") {
@@ -130,10 +131,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   }
   const google = createGoogleProvider({clientId:process.env.GOOGLE_CLIENT_ID, clientSecret:process.env.GOOGLE_CLIENT_SECRET, redirectUri:origin + "/auth/google/callback"});
   const allowedEmails = process.env.CRM_ALLOWED_EMAILS;
-  approvedEmails(allowedEmails);
+  const allowedDomain = process.env.CRM_ALLOWED_DOMAIN;
+  accessPolicy({allowedEmails, allowedDomain});
   mkdirSync(dirname(filename), {recursive:true});
   const db = openDatabase(filename);
-  const server = createCRMServer({db, origin, allowedEmails, google});
+  const server = createCRMServer({db, origin, allowedEmails, allowedDomain, google});
   server.listen(Number(process.env.PORT || 8080), "0.0.0.0", () => console.log("ProperlyPR CRM listening; migrations applied; Google sign-in ready."));
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { server.close(() => { db.close(); process.exit(0); }); setTimeout(() => process.exit(1), 10000).unref(); });
 }

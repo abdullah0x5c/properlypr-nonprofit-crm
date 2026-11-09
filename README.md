@@ -4,7 +4,7 @@ A small-team nonprofit outreach CRM built from [hunzaarshadkhan/properlypr-nonpr
 
 This release adds the meeting's immediate requirements: CSV downloads, CSV uploads with automatic/editable field mapping, and direct **Update status** actions. It also adds a Railway production server with authentication and a persistent SQLite database. Email and SMS sending are not included; reps send externally and record the actual outcome.
 
-Live instance: **https://crm-production-2467.up.railway.app**. The CRM uses **Continue with Google**, restricted to approved Gmail or Google Workspace accounts. Shared admin/password login is removed in this release. Production starts empty pending the actual workbook.
+Live instance: **https://crm-production-2467.up.railway.app**. The CRM uses **Continue with Google**, restricted to verified **@properlypr.com Google Workspace** accounts. Shared admin/password login is removed in this release. Production starts empty pending the actual workbook.
 
 ## Run locally
 
@@ -56,7 +56,7 @@ Railway builds the included `Dockerfile` using Node 24, listens on `0.0.0.0:$POR
    https://crm-production-2467.up.railway.app/auth/google/callback
    ```
 
-   Keep the downloaded OAuth JSON private. Configure External audience if approved users include personal Gmail accounts; Internal is suitable only for users within the owning Google Workspace organization. CRM access is always checked against its own approved-email list.
+   Keep the downloaded OAuth JSON private. Configure External audience if approved users include personal Gmail accounts; Internal is suitable only for users within the owning Google Workspace organization. CRM access is checked by the server against its configured Workspace domain. The Google `hd` parameter only guides account selection; the signed token is checked after login.
 
 3. Generate a Railway public domain targeting port 8080. Configure these private service variables:
 
@@ -66,18 +66,18 @@ Railway builds the included `Dockerfile` using Node 24, listens on `0.0.0.0:$POR
    | `CRM_DATABASE_PATH` | `/data/crm.sqlite` |
    | `GOOGLE_CLIENT_ID` | Web application OAuth client ID |
    | `GOOGLE_CLIENT_SECRET` | OAuth client secret, configured privately |
-   | `CRM_ALLOWED_EMAILS` | Comma-separated approved Gmail / Google Workspace email addresses |
+   | `CRM_ALLOWED_DOMAIN` | `properlypr.com` — exact email domain and verified Google Workspace `hd` must both match |
    | `NODE_ENV` | `production` |
    | `PORT` | `8080` |
 
 4. Deploy this checkout with `railway up` or connect the service to the branch containing these changes. `railway.json` configures the Dockerfile, healthcheck, and restart behavior. A missing volume, invalid login configuration, or missing HTTPS origin fails startup rather than exposing an unsecured or nonpersistent workspace.
 5. Visit the HTTPS origin, sign in, and check `/healthz`. A production database starts empty. Import real records only after their mapping and provenance have been reviewed.
 
-The Railway server discards caller-supplied identity and privileged-import headers. Google login uses an authorization code with PKCE, a browser-bound random state, and a nonce. The Google library verifies the ID token signature, issuer, audience and expiry; the CRM also checks nonce, verified email, Gmail/Workspace ownership and the approved-email list. The callback is single-use and expires after ten minutes. Google access and refresh tokens are not retained. Only `openid email profile` scopes are requested.
+The Railway server discards caller-supplied identity and privileged-import headers. Google login uses an authorization code with PKCE, a browser-bound random state, and a nonce. The Google library verifies the ID token signature, issuer, audience and expiry; the CRM also checks nonce, verified email, Gmail/Workspace ownership and the configured access policy. Domain mode requires both the email suffix and signed Workspace domain to match exactly; Gmail accounts, lookalike domains and subdomains cannot bypass this. The callback is single-use and expires after ten minutes. Google access and refresh tokens are not retained. Only `openid email profile` scopes are requested.
 
 The database stores the stable Google `sub`, verified email and display name in `crm_users`. Notes and activities are attributed to the verified email. Session cookies contain opaque random tokens; only their hashes are stored in `auth_sessions`. Cookies are Secure on HTTPS, HttpOnly, SameSite=Lax (needed for Google's top-level callback), and expire after eight hours. All application writes require `APP_ORIGIN`. Logout deletes the server session. Pending sign-ins and sessions survive restarts. Login starts are rate-limited in memory. Secrets, authorization codes and token responses are never logged.
 
-To add or remove access, edit `CRM_ALLOWED_EMAILS` and redeploy. Removing an email disables its existing sessions as well. All approved users currently share editing privileges; role administration is future work. An approved email already bound to one Google `sub` cannot silently be taken over by another Google account. Non-Gmail Google accounts without a verified Workspace identity require a separate email-verification flow and are not enabled by this release.
+The live policy admits all verified users whose email and Google Workspace domain are exactly `properlypr.com`. Manage team membership in Google Workspace. CRM sessions last up to eight hours; suspending an account in Google does not itself revoke an already-issued CRM session. All admitted users currently share editing privileges; role administration is future work. An email already bound to one Google `sub` cannot silently be taken over by another Google account. Other deployments can instead configure `CRM_ALLOWED_EMAILS` as a comma-separated list of approved Gmail/Workspace accounts. Configure exactly one access mode; setting both email and domain policies fails startup. Existing sessions are rechecked against the configured policy.
 
 `CRM_USERS_JSON`, `SESSION_SECRET`, and old `.local/admin-credentials.json` values are no longer used. Old password sessions are rejected. Delete obsolete Railway password variables after the successful Google deployment. Test actual account selection/consent with an approved user before calling the full production sign-in accepted; automated fixtures cover protocol verification but do not impersonate a real Google user.
 
