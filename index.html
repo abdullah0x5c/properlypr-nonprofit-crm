@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ProperlyPR · Nonprofit CRM</title>
+    <style>
+      :root {
+        font:
+          15px/1.5 "Segoe UI",
+          Arial,
+          sans-serif;
+        color: #192c28;
+        background: #faf9f5;
+        --moss: #183f34;
+        --line: #d9dcd2;
+        --muted: #56695f;
+        --lime: #e4efb9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      button,
+      a {
+        cursor: pointer;
+      }
+      button {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 13px;
+      }
+      .primary {
+        background: var(--moss);
+        color: white;
+        border-color: var(--moss);
+      }
+      button:hover {
+        filter: brightness(0.95);
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: wait;
+      }
+      a {
+        color: var(--moss);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #7f9f46;
+      }
+      input,
+      select,
+      textarea {
+        border: 1px solid #abb5a9;
+        padding: 8px 10px;
+        border-radius: 5px;
+        background: #fff;
+      }
+      textarea {
+        width: 100%;
+        min-height: 80px;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 195px 1fr;
+        min-height: 100vh;
+      }
+      .rail {
+        background: var(--moss);
+        color: white;
+        padding: 30px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .logo {
+        font:
+          27px Georgia,
+          serif;
+        letter-spacing: -1.4px;
+        padding: 0 7px 24px;
+      }
+      .rail small,
+      .kicker {
+        font:
+          700 10px/1.5 "Segoe UI",
+          sans-serif;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+      }
+      .rail small {
+        color: #b9c8b4;
+        margin: 22px 8px 6px;
+      }
+      .rail button {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        border: 0;
+        background: none;
+        color: #f0f4e9;
+        padding: 10px;
+      }
+      .rail button[aria-current="true"] {
+        background: var(--lime);
+        color: var(--moss);
+      }
+      .rail button b {
+        font-size: 16px;
+        font-weight: 500;
+        width: 19px;
+      }
+      .foot {
+        margin-top: auto;
+        padding: 28px 8px 0;
+        font-size: 12px;
+        color: #d2dfd3;
+      }
+      .main {
+        min-width: 0;
+        max-width: 1550px;
+        width: 100%;
+        margin: auto;
+        padding: 0 36px 35px;
+        align-self: start;
+      }
+      .top {
+        padding: 20px 0;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .kicker {
+        color: #5c7566;
+        margin-top: 30px;
+      }
+      .main h1,
+      .main h2,
+      .main h3 {
+        font-family: Georgia, serif;
+        font-weight: normal;
+        line-height: 1.15;
+        letter-spacing: -0.7px;
+      }
+      .main h1 {
+        font-size: clamp(32px, 4vw, 47px);
+        margin: 5px 0 20px;
+      }
+      .main h2 {
+        font-size: 27px;
+        margin: 0 0 13px;
+      }
+      .main h3 {
+        font-size: 21px;
+        margin: 19px 0 8px;
+      }
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 27px;
+      }
+      .kpi {
+        background: #fffefa;
+        text-align: left;
+        border: 1px solid var(--line);
+        border-top: 3px solid #7f967d;
+        padding: 14px 17px;
+      }
+      .kpi:first-child {
+        border-top-color: #215840;
+      }
+      .kpi strong {
+        display: block;
+        font:
+          32px Georgia,
+          serif;
+        margin-top: 5px;
+      }
+      .kpi span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .pipe {
+        display: flex;
+        height: 17px;
+        gap: 2px;
+        margin: 12px 0 15px;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .pipe span {
+        min-width: 1px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+      }
+      .legend button {
+        padding: 3px 0;
+        border: 0;
+        background: none;
+        font-size: 13px;
+      }
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 2px;
+      }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffefa;
+        padding: 17px 20px;
+        margin: 0 0 18px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 15px;
+      }
+      .issue {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+        padding: 9px 0;
+      }
+      .filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0 16px;
+      }
+      .filter input {
+        flex: 1;
+        min-width: 180px;
+      }
+      .count,
+      .sub,
+      small {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .tablewrap {
+        overflow: auto;
+        max-height: 65vh;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+        font-size: 13px;
+      }
+      th {
+        background: #f0f2e9;
+        padding: 9px;
+        position: sticky;
+        top: 0;
+        color: #526455;
+      }
+      td {
+        padding: 8px 9px;
+        border-bottom: 1px solid var(--line);
+      }
+      td button {
+        padding: 0;
+        border: 0;
+        text-align: left;
+        color: var(--moss);
+        background: transparent;
+        font-weight: 600;
+      }
+      .chip {
+        display: inline-block;
+        background: #e9eee3;
+        color: #315642;
+        padding: 3px 7px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .warn {
+        color: #843d1c;
+      }
+      .notice {
+        padding: 10px;
+        background: #edf2df;
+        margin: 12px 0;
+        border-radius: 5px;
+      }
+      .alert {
+        background: #ffe8de;
+        color: #802d1c;
+      }
+      dialog {
+        border: 1px solid #bcc6b9;
+        border-radius: 13px;
+        padding: 0;
+        width: min(850px, 95vw);
+        max-height: 90vh;
+        background: #fffefa;
+        color: #192c28;
+      }
+      dialog::backdrop {
+        background: #132e26a8;
+      }
+      .head {
+        padding: 22px 25px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .head .row,
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: space-between;
+      }
+      .head h2 {
+        margin: 8px 0;
+        font:
+          30px/1.1 Georgia,
+          serif;
+      }
+      .tabs {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+      .tabs button {
+        border: 0;
+        border-radius: 0;
+        border-bottom: 2px solid transparent;
+      }
+      .tabs button[aria-current="true"] {
+        border-color: var(--moss);
+        color: var(--moss);
+        font-weight: 600;
+      }
+      .body {
+        padding: 0 25px 24px;
+      }
+      .body h3 {
+        font:
+          21px Georgia,
+          serif;
+        margin: 19px 0 9px;
+      }
+      .body dl {
+        margin: 0;
+      }
+      .body dl div {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        border-bottom: 1px solid var(--line);
+        padding: 7px 0;
+        gap: 12px;
+      }
+      .body dt {
+        color: var(--muted);
+      }
+      .body dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .form label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 13px;
+      }
+      .entry {
+        border-top: 1px solid var(--line);
+        padding: 11px 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .entry small {
+        display: block;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .body > p {
+        color: var(--muted);
+      }
+      @media (max-width: 800px) {
+        .app {
+          display: block;
+        }
+        .rail {
+          padding: 10px;
+          flex-direction: row;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 3px;
+        }
+        .rail .logo {
+          font-size: 23px;
+          padding: 2px 8px;
+        }
+        .rail small,
+        .foot,
+        .rail b {
+          display: none;
+        }
+        .rail button {
+          font-size: 12px;
+          width: auto;
+          padding: 5px 7px;
+        }
+        .main {
+          padding: 0 14px 20px;
+        }
+        .kpis {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 5px;
+        }
+        .grid,
+        .form {
+          grid-template-columns: 1fr;
+        }
+        .kicker {
+          margin-top: 16px;
+        }
+        .head,
+        .body {
+          padding: 14px;
+        }
+        .body dl div {
+          grid-template-columns: 110px 1fr;
+        }
+        .filter select {
+          max-width: 100%;
+        }
+        .tablewrap {
+          max-height: 62vh;
+        }
+        .body table {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="logo">ProperlyPR</div>
+        <small>Workspace</small>
+        <nav id="nav"></nav>
+        <div class="foot">Nonprofit CRM<br />Private review workspace</div>
+      </aside>
+      <main class="main">
+        <div class="top">
+          <span>ProperlyPR &nbsp;/&nbsp; Nonprofit CRM</span
+          ><span id="date"></span>
+        </div>
+        <div class="kicker">Sales workspace</div>
+        <h1 id="title">Overview</h1>
+        <div id="notice" role="status" hidden></div>
+        <div id="content">Opening workspace…</div>
+      </main>
+    </div>
+    <dialog id="newOrg">
+      <div class="head"><h2>Add organization</h2></div>
+      <div class="body">
+        <p>
+          New records start in Available. Choose “Add to first calls” when
+          you’re ready to contact them.
+        </p>
+        <form id="create">
+          <div class="form">
+            <label
+              >Organization name<input
+                name="name"
+                maxlength="240"
+                required /></label
+            ><label
+              >EIN<input name="id" placeholder="12-3456789" required
+            /></label>
+          </div>
+          <div id="createNotice" hidden></div>
+          <div class="actions">
+            <button class="primary">Add organization</button
+            ><button type="button" id="dismissCreate">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+    <dialog id="record">
+      <div id="head" class="head"></div>
+      <div id="recordNotice" role="status" hidden></div>
+      <div id="body" class="body"></div>
+    </dialog>
+    <script>
+      const $ = (id) => document.getElementById(id),
+        esc = (v) =>
+          String(v ?? "").replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[c],
+          );
+      let list = [],
+        today = "",
+        page = "Overview",
+        stage = "",
+        search = "",
+        issue = "",
+        sel = null,
+        pane = "Profile",
+        busy = false,
+        serial = 0,
+        draft = false,
+        saveId = "",
+        profileEdit = false;
+      const pages = [
+        ["Overview", "◩"],
+        ["Organizations", "▤"],
+        ["Calls due", "☎"],
+        ["Emails due", "✉"],
+        ["Meetings", "□"],
+        ["Review and nurture", "◇"],
+      ];
+      const colors = [
+        "#315e4c",
+        "#789780",
+        "#bac887",
+        "#cb9c68",
+        "#91b8bf",
+        "#c4c0b9",
+        "#47776b",
+      ];
+      function nice(s) {
+        return String(s || "")
+          .toLowerCase()
+          .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+      }
+      function fmt(d) {
+        if (!d) return "—";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          const [y, m, day] = d.split("-");
+          return m + "/" + day + "/" + y;
+        }
+        if (d.includes("T") && d.endsWith("Z"))
+          return new Date(d).toLocaleString("en-US", {
+            timeZone: "America/New_York",
+          });
+        return d.replace("T", " ");
+      }
+      function safe(url, text) {
+        try {
+          const u = new URL(url);
+          if (!["http:", "https:"].includes(u.protocol)) return "";
+          return (
+            '<a target="_blank" rel="noopener noreferrer" href="' +
+            esc(u.href) +
+            '">' +
+            esc(text || u.hostname) +
+            "</a>"
+          );
+        } catch {
+          return "";
+        }
+      }
+      async function api(path, data) {
+        const r = await fetch(
+          path,
+          data
+            ? {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              }
+            : {},
+        );
+        if (r.status === 401)
+          throw Error("Please sign in to this private workspace.");
+        const v = await r.json();
+        if (!r.ok) throw Error(v.error || "Could not save.");
+        return v;
+      }
+      function msg(text, bad = false, where = "notice") {
+        const n = $(where);
+        n.hidden = !text;
+        n.className = "notice" + (bad ? " alert" : "");
+        n.textContent = text;
+      }
+      const isDue = (r) => !!r.due && r.due <= today;
+      const call = (r) =>
+        isDue(r) &&
+        (/^(Cold call|Call \d|Callback)/i.test(r.step) ||
+          r.step === "Make first call" ||
+          /^(Follow-up call|Confirmation call)/i.test(r.step));
+      const email = (r) =>
+        isDue(r) &&
+        /^(Email \d|Follow-up email|Confirm meeting|Joining reminder)/i.test(
+          r.step,
+        );
+      const issues = {
+        "Email address missing": (r) => r.tab === "Email Sequence" && !r.email,
+        "Meeting time missing": (r) => r.status === "Booked" && !r.agreed,
+        "Contact needs review": (r) => r.status === "Contact review",
+      };
+      const batchIds = new Set();
+      function go(name, stageName = "", problem = "") {
+        batchIds.clear();
+        page = name;
+        stage = stageName;
+        issue = problem;
+        search = "";
+        render();
+      }
+      function render() {
+        $("title").textContent = page;
+        $("nav").innerHTML = pages
+          .map(
+            ([n, icon]) =>
+              '<button data-page="' +
+              n +
+              '" aria-current="' +
+              (n === page) +
+              '"><b>' +
+              icon +
+              "</b>" +
+              n +
+              "</button>",
+          )
+          .join("");
+        const tabs = [...new Set(list.map((r) => r.tab))].sort(),
+          totals = tabs.map((t) => list.filter((o) => o.tab === t).length);
+        if (page === "Overview") {
+          $("content").innerHTML =
+            '<div class="kpis">' +
+            [
+              ["Organizations", list.length],
+              ["Calls due", list.filter(call).length],
+              ["Emails due", list.filter(email).length],
+              ["Meetings", list.filter((r) => r.tab === "Meetings").length],
+            ]
+              .map(
+                ([n, v]) =>
+                  '<button class="kpi" data-page="' +
+                  n +
+                  '"><span>' +
+                  n +
+                  "</span><strong>" +
+                  v +
+                  "</strong></button>",
+              )
+              .join("") +
+            '</div><div class="grid"><section class="panel"><h2>Pipeline</h2><div class="pipe">' +
+            tabs
+              .map(
+                (t, i) =>
+                  '<span style="background:' +
+                  colors[i % 7] +
+                  ";flex:" +
+                  totals[i] +
+                  '" title="' +
+                  esc(t) +
+                  '"></span>',
+              )
+              .join("") +
+            '</div><div class="legend">' +
+            tabs
+              .map(
+                (t, i) =>
+                  '<button data-stage="' +
+                  esc(t) +
+                  '"><span class="dot" style="background:' +
+                  colors[i % 7] +
+                  '"></span>' +
+                  esc(t) +
+                  " · " +
+                  totals[i] +
+                  "</button>",
+              )
+              .join("") +
+            '</div></section><section class="panel"><h2>Needs attention</h2>' +
+            Object.entries(issues)
+              .map(
+                ([s, test]) =>
+                  '<button class="issue" data-issue="' +
+                  s +
+                  '">' +
+                  s +
+                  "<b>" +
+                  list.filter(test).length +
+                  " →</b></button>",
+              )
+              .join("") +
+            "</section></div><h2>Next calls</h2>" +
+            table(list.filter(call).slice(0, 8));
+          return;
+        }
+        $("content").innerHTML =
+          '<div class="filter"><input id="search" aria-label="Search organizations" placeholder="Search name, domain, or EIN" value="' +
+          esc(search) +
+          '"><select aria-label="Work tab" id="stage"><option value="">All work tabs</option>' +
+          tabs
+            .map(
+              (t) =>
+                "<option " +
+                (stage === t ? "selected" : "") +
+                ">" +
+                esc(t) +
+                "</option>",
+            )
+            .join("") +
+          "</select>" +
+          (issue
+            ? '<button data-page="Organizations">' + esc(issue) + " ×</button>"
+            : "") +
+          (page === "Organizations"
+            ? '<button id="addOrg" class="primary">Add organization</button>' +
+              (stage === "Available"
+                ? '<button id="batchBtn">Queue selected</button>'
+                : "")
+            : "") +
+          '</div><div id="matches"></div>';
+        rows();
+      }
+      function rows() {
+        const q = search.toLowerCase();
+        const records = list.filter(
+          (r) =>
+            (!stage || r.tab === stage) &&
+            (!issue || issues[issue](r)) &&
+            (!q ||
+              [r.name, r.domain, r.id].join(" ").toLowerCase().includes(q)) &&
+            (page === "Calls due"
+              ? call(r)
+              : page === "Emails due"
+                ? email(r)
+                : page === "Meetings"
+                  ? r.tab === "Meetings"
+                  : page === "Review and nurture"
+                    ? r.tab === "Review and Nurture"
+                    : true),
+        );
+        $("matches").innerHTML =
+          '<p class="count">' +
+          records.length +
+          " organizations</p>" +
+          table(records);
+      }
+      function table(recs) {
+        return (
+          '<div class="tablewrap"><table><thead><tr><th>Organization</th><th>Work tab</th><th>Next step</th><th>Due date</th></tr></thead><tbody>' +
+          recs
+            .map(
+              (r) =>
+                "<tr><td>" +
+                (page === "Organizations" && stage === "Available"
+                  ? '<input type="checkbox" data-batch="' +
+                    esc(r.id) +
+                    '" aria-label="Select ' +
+                    esc(r.name) +
+                    '" ' +
+                    (batchIds.has(r.id) ? "checked" : "") +
+                    "> "
+                  : "") +
+                '<button data-org="' +
+                esc(r.id) +
+                '">' +
+                esc(nice(r.name)) +
+                "</button><br><small>" +
+                esc(r.domain || r.id) +
+                '</small></td><td><span class="chip">' +
+                esc(r.tab) +
+                "</span></td><td>" +
+                esc(r.step) +
+                '</td><td class="' +
+                (r.due && r.due < today ? "warn" : "") +
+                '">' +
+                fmt(r.due) +
+                "</td></tr>",
+            )
+            .join("") +
+          "</tbody></table>" +
+          (recs.length ? "" : "<p>No organizations match this view.</p>") +
+          "</div>"
+        );
+      }
+      async function refresh() {
+        const v = await api("/api/directory");
+        list = v.orgs;
+        today = v.today;
+        $("date").textContent = fmt(today) + " · Eastern";
+        render();
+      }
+      function ok() {
+        return !busy && (!draft || window.confirm("Discard unsaved changes?"));
+      }
+      async function openOrg(id) {
+        const n = ++serial;
+        try {
+          const o = await api("/api/org/" + id);
+          if (n !== serial) return;
+          sel = o;
+          pane = "Profile";
+          draft = profileEdit = false;
+          saveId = "";
+          msg("", false, "recordNotice");
+          draw();
+          if (!$("record").open) $("record").showModal();
+        } catch (e) {
+          msg(e.message, true);
+        }
+      }
+      function pairs(data) {
+        return (
+          "<dl>" +
+          data
+            .map(
+              ([k, v]) =>
+                "<div><dt>" + k + "</dt><dd>" + (v || "—") + "</dd></div>",
+            )
+            .join("") +
+          "</dl>"
+        );
+      }
+      const editable = {
+        owner: "Assigned rep",
+        contact: "Contact",
+        phone: "Phone",
+        email: "CRM email",
+        website: "Website",
+        address: "Mailing address",
+        focus: "Focus area",
+        mission: "Mission / programs",
+        research: "Research notes",
+        researchSource: "Research source URL",
+      };
+      function draw() {
+        const o = sel;
+        $("head").innerHTML =
+          '<div class="row"><span class="chip">' +
+          esc(o.tab) +
+          '</span><button id="close">Close ×</button></div><h2>' +
+          esc(nice(o.name)) +
+          "</h2><small>" +
+          esc(o.status) +
+          " · " +
+          esc(o.step) +
+          (o.due ? " · " + fmt(o.due) : "") +
+          '</small><div class="tabs">' +
+          ["Profile", "People", "Notes", "Activity", "Log outcome"]
+            .map(
+              (t) =>
+                '<button data-pane="' +
+                t +
+                '" aria-current="' +
+                (pane === t) +
+                '">' +
+                t +
+                "</button>",
+            )
+            .join("") +
+          "</div>";
+        let body = "";
+        if (pane === "Profile" && profileEdit) {
+          body =
+            '<h3>Edit profile</h3><form id="profile"><div class="form">' +
+            Object.entries(editable)
+              .map(
+                ([k, v]) =>
+                  "<label>" +
+                  v +
+                  (k === "mission" || k === "research"
+                    ? '<textarea name="' + k + '">' + esc(o[k]) + "</textarea>"
+                    : '<input name="' + k + '" value="' + esc(o[k]) + '">') +
+                  "</label>",
+              )
+              .join("") +
+            '</div><div class="actions"><button class="primary">Save profile</button><button type="button" id="cancelEdit">Cancel</button></div></form>';
+        } else if (pane === "Profile") {
+          body =
+            '<div class="row"><h3>Organization</h3><button id="edit">Edit profile</button></div>' +
+            pairs([
+              ["EIN", esc(o.id)],
+              ["Assigned rep", esc(o.owner)],
+              ["Mailing address", esc(o.address)],
+              ["Website", safe(o.website, o.domain)],
+              ["Website evidence", esc(o.evidence)],
+              ["Focus area", esc(o.focus)],
+              ["Mission / programs", esc(o.mission)],
+              [
+                "Reported revenue",
+                o.revenue
+                  ? "$" +
+                    esc(Number(o.revenue).toLocaleString()) +
+                    " · " +
+                    esc(o.period)
+                  : "",
+              ],
+              [
+                "Sources",
+                [
+                  safe(o.addressSource, "IRS record"),
+                  safe(o.filing, "Filing"),
+                  safe(o.researchSource, "Research source"),
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              ],
+            ]) +
+            "<h3>Contact</h3>" +
+            pairs([
+              ["Contact", esc(o.contact)],
+              ["Phone", esc(o.phone)],
+              ["CRM email", esc(o.email)],
+              ["Published candidate", esc(o.candidate)],
+              ["Filing officer", esc(o.officer)],
+              ["Agreed time (ET)", esc(fmt(o.agreed))],
+              ["Research notes", esc(o.research)],
+            ]);
+        } else if (pane === "People") {
+          body =
+            "<h3>Board and officers</h3><p>Roles are shown as reported in the linked filings.</p><table><tr><th>Name</th><th>Reported role</th><th>Filing year</th></tr>" +
+            o.people
+              .map(
+                (p) =>
+                  "<tr><td>" +
+                  esc(p[0]) +
+                  "</td><td>" +
+                  esc(p[1]) +
+                  "</td><td>" +
+                  safe(p[3], p[2]) +
+                  "</td></tr>",
+              )
+              .join("") +
+            '</table><details><summary>Add board member or officer</summary><form id="person"><div class="form"><label>Name<input name="name" required></label><label>Reported role<input name="role" required></label><label>Filing year<input name="year" pattern="[0-9]{4}" required></label><label>Source URL<input name="source" type="url"></label></div><div class="actions"><button class="primary">Save person</button></div></form></details>';
+        } else if (pane === "Notes") {
+          const items = [
+            ...o.savedNotes,
+            ...(o.notes || []).map((n) => ({
+              stamp: n.date,
+              body: n.text,
+              author: n.by,
+            })),
+          ];
+          body =
+            '<h3>Team notes</h3><form id="note"><textarea name="body" required aria-label="Team note" maxlength="6000" placeholder="Add a note for the team"></textarea><div class="actions"><button class="primary">Save note</button></div></form>' +
+            items
+              .map(
+                (n) =>
+                  '<div class="entry"><small>' +
+                  esc(fmt(n.stamp)) +
+                  " · " +
+                  esc(n.author) +
+                  "</small>" +
+                  esc(n.body) +
+                  "</div>",
+              )
+              .join("");
+        } else if (pane === "Activity") {
+          body =
+            "<h3>Activity history</h3>" +
+            [...o.history]
+              .reverse()
+              .map(
+                (n) =>
+                  '<div class="entry"><small>' +
+                  esc(fmt(n.date)) +
+                  " ET" +
+                  (n.by ? " · " + esc(n.by) : "") +
+                  (n.effective ? " · Effective " + fmt(n.effective) : "") +
+                  "</small><b>" +
+                  esc(n.text) +
+                  "</b><br>" +
+                  esc(n.notes) +
+                  "</div>",
+              )
+              .join("");
+        } else {
+          body =
+            "<h3>Log outcome</h3>" +
+            (o.actions.length
+              ? '<form id="outcome"><div class="form"><label>Outcome<select required name="action" id="outcomeSelect"><option value="">Select an outcome</option>' +
+                o.actions
+                  .map((a) => "<option>" + esc(a) + "</option>")
+                  .join("") +
+                '</select></label><label>Action date (ET)<input type="date" name="asOf" max="' +
+                today +
+                '" value="' +
+                today +
+                '" required></label><label id="timeLabel" hidden>Agreed time (ET)<input type="datetime-local" name="agreed"></label></div><p><textarea name="notes" aria-label="Outcome notes" placeholder="Outcome notes (optional)"></textarea></p><button class="primary">Save outcome</button></form>'
+              : "<p>No outreach actions are scheduled for this status.</p>");
+        }
+        $("body").innerHTML = body;
+      }
+      document.onclick = async (e) => {
+        const b = e.target.closest("button");
+        if (!b || busy) return;
+        if (b.id === "batchBtn") {
+          if (!batchIds.size) {
+            msg("Select an available organization first.");
+            return;
+          }
+          busy = true;
+          b.disabled = true;
+          try {
+            const result = await api("/api/batch", {
+              ids: [...batchIds],
+              requestId: crypto.randomUUID(),
+            });
+            batchIds.clear();
+            await refresh();
+            msg(result.added + " added to first calls.");
+          } catch (err) {
+            msg(err.message, true);
+          } finally {
+            busy = false;
+            b.disabled = false;
+          }
+          return;
+        } else if (b.id === "addOrg") {
+          $("create").reset();
+          saveId = "";
+          msg("", false, "createNotice");
+          $("newOrg").showModal();
+        } else if (b.id === "dismissCreate") $("newOrg").close();
+        else if (b.dataset.page) go(b.dataset.page);
+        else if (b.dataset.stage) go("Organizations", b.dataset.stage);
+        else if (b.dataset.issue) go("Organizations", "", b.dataset.issue);
+        else if (b.dataset.org) await openOrg(b.dataset.org);
+        else if (b.id === "close") {
+          if (ok()) $("record").close();
+        } else if (b.dataset.pane && ok()) {
+          profileEdit = draft = false;
+          saveId = "";
+          pane = b.dataset.pane;
+          msg("", false, "recordNotice");
+          draw();
+        } else if (b.id === "edit") {
+          profileEdit = true;
+          draw();
+        } else if (b.id === "cancelEdit" && ok()) {
+          profileEdit = draft = false;
+          draw();
+        }
+      };
+      $("record").addEventListener("cancel", (e) => {
+        if (!ok()) e.preventDefault();
+      });
+      document.oninput = (e) => {
+        if (e.target.id === "search") {
+          search = e.target.value;
+          rows();
+        } else if (e.target.closest("form")) {
+          draft = true;
+          saveId = "";
+        }
+      };
+      document.onchange = (e) => {
+        if (e.target.dataset.batch) {
+          if (e.target.checked) batchIds.add(e.target.dataset.batch);
+          else batchIds.delete(e.target.dataset.batch);
+        }
+        if (e.target.id === "stage") {
+          batchIds.clear();
+          stage = e.target.value;
+          render();
+        }
+        if (e.target.id === "outcomeSelect") {
+          const a = e.target.value,
+            l = $("timeLabel");
+          l.hidden = ![
+            "Meeting booked",
+            "Set meeting time",
+            "Callback requested",
+          ].includes(a);
+          l.querySelector("input").required = [
+            "Set meeting time",
+            "Callback requested",
+          ].includes(a);
+        }
+      };
+      document.onsubmit = async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        const f = e.target,
+          v = Object.fromEntries(new FormData(f)),
+          button = f.querySelector("button");
+        busy = true;
+        button.disabled = true;
+        saveId = saveId || crypto.randomUUID();
+        try {
+          if (f.id === "create") {
+            const item = await api("/api/org", { ...v, requestId: saveId });
+            saveId = "";
+            draft = false;
+            $("newOrg").close();
+            await refresh();
+            await openOrg(item.id);
+            return;
+          }
+          const action = f.id === "note" ? "note" : "update";
+          let payload =
+            f.id === "note"
+              ? { body: v.body }
+              : f.id === "profile"
+                ? { type: "profile", rev: sel.rev, fields: v }
+                : f.id === "person"
+                  ? { type: "person", rev: sel.rev, ...v }
+                  : { type: "outcome", rev: sel.rev, ...v };
+          const data = await api("/api/org/" + sel.id + "/" + action, {
+            ...payload,
+            requestId: saveId,
+          });
+          sel = data;
+          draft = profileEdit = false;
+          saveId = "";
+          if (f.id === "outcome") pane = "Activity";
+          draw();
+          msg(
+            f.id === "note" ? "Team note saved." : "Changes saved.",
+            false,
+            "recordNotice",
+          );
+          await refresh();
+        } catch (err) {
+          msg(
+            err.message,
+            true,
+            f.id === "create" ? "createNotice" : "recordNotice",
+          );
+        } finally {
+          busy = false;
+          button.disabled = false;
+        }
+      };
+      refresh().catch((e) => {
+        msg(e.message, true);
+        $("content").innerHTML =
+          '<a href="/signin-with-chatgpt?return_to=/" target="_top">Sign in to ProperlyPR CRM</a>';
+      });
+    </script>
+  </body>
+</html>

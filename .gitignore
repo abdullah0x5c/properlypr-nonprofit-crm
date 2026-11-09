@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.local/
+.wrangler/
+.sites-runtime/
+.env
+.env.*
+.dev.vars*
+*.db
+*.db-*
+*.sqlite*
+*.tar.gz
+*.csv
+*.ndjson
