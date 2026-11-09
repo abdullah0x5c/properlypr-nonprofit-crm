@@ -4,6 +4,8 @@ A small-team nonprofit outreach CRM built from [hunzaarshadkhan/properlypr-nonpr
 
 This release adds the meeting's immediate requirements: CSV downloads, CSV uploads with automatic/editable field mapping, and direct **Update status** actions. It also adds a Railway production server with authentication and a persistent SQLite database. Email and SMS sending are not included; reps send externally and record the actual outcome.
 
+Live instance: **https://crm-production-2467.up.railway.app**. The CRM requires a team login. The initial credentials are stored privately in `.local/admin-credentials.json` on the deployment workstation. Production starts empty pending the actual workbook.
+
 ## Run locally
 
 Use Node.js 24 or newer. Application runtime, build, and API tests require no external packages.
@@ -78,13 +80,26 @@ A volume-backed service has brief downtime on redeployment and cannot scale hori
 
 ### Backups and recovery
 
-Enable automatic volume backups in Railway. The included command also creates a consistent SQLite backup using SQLite's online backup API:
+The current Hobby workspace rejected Railway backup schedules because the API requires a Pro workspace. **Automatic backups are not configured.** Arrange external backups or enable Railway backups on a supported plan. The included command creates a consistent SQLite backup using SQLite's online backup API:
 
 ```sh
 CRM_DATABASE_PATH=/data/crm.sqlite node scripts/backup.mjs /data/crm-backup.sqlite
 ```
 
 Copy backups to separate storage. A backup stored only on the source volume is not protection against losing that volume. To restore a manual SQLite backup, stop the application, replace the database with the backup, remove obsolete `-wal`/`-shm` files, and restart. Restore to a separate test database first and verify organization and note counts. Production restore has not been exercised by the automated tests. Never copy only a live SQLite main file while ignoring its WAL.
+
+### Current deployment and updates
+
+The live release was uploaded directly. The source branch is `railway-csv-crm` in the public development fork. The original repository was read-only to the implementation account. Railway rejected connecting the fork with “User does not have access to the repo”; GitHub automatic deployment is not configured. After review/merge, the repository owner can connect the original repository in Railway. Do not point Railway at the old upstream main branch before these changes are merged.
+
+For direct updates, run tests, commit the release, and use either `railway up` or the included source uploader:
+
+```sh
+npm test
+RAILWAY_API_TOKEN_FILE=/path/to/private/token node scripts/deploy-railway.mjs
+```
+
+The uploader reads saved IDs from `.local/railway-deployment.json` on this workstation. On another workstation set `RAILWAY_PROJECT_ID`, `RAILWAY_ENVIRONMENT_ID`, and `RAILWAY_SERVICE_ID`. It deploys only a clean, committed HEAD using `git archive`, keeping local credentials and database files out of the uploaded release. The account token belongs on the deployment workstation, never in the CRM service's environment.
 
 ## Data handoff and recommended next features
 
