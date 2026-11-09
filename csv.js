@@ -2,6 +2,7 @@ export const csvFields = {
   name: ["Organization", "organization name", "nonprofit", "company", "company name"],
   id: ["EIN", "tax id", "ein number"],
   contact: ["Person name", "contact", "contact name", "primary contact", "person"],
+  contactRole: ["Contact role", "job title", "contact title"],
   phone: ["Phone", "phone number", "telephone"],
   email: ["Working email", "email", "crm email", "email address"],
   candidate: ["Published email candidate", "candidate email"],

@@ -53,9 +53,10 @@ try {
   assert.ok(db.prepare("SELECT token_hash FROM auth_sessions").first().token_hash!==token,"database stores hashes rather than session secrets");
   const wrongCookie=cookie.slice(0,-1)+(cookie.endsWith("a")?"b":"a");assert.equal((await request("/api/directory",{cookie:wrongCookie})).status,401);
   assert.equal((await request("/api/org",{cookie,data:{},headers:{Origin:"https://evil.example"}})).status,403);
-  const org={id:"444444444",name:"Google test nonprofit",requestId:crypto.randomUUID()};
+  const org={id:"444444444",name:"Google test nonprofit",requestId:crypto.randomUUID(),contact:"Primary contact",contactRole:"Director",email:"contact@example.org",phone:"5555550100",website:"https://example.org",owner:"Team rep",initialNote:"Initial team context"};
   assert.equal((await request("/api/org",{cookie,data:org,headers:{"oai-authenticated-user-id":"spoofed","oai-authenticated-user-email":"spoof@gmail.com"}})).status,200);
   const saved=await(await request("/api/org/444444444",{cookie})).json();assert.equal(saved.history[0].by,"rep@gmail.com");
+  assert.equal(saved.email,org.email);assert.equal(saved.savedNotes[0].author,"rep@gmail.com");
   assert.equal((await request("/api/org/444444444/note",{cookie,data:{body:"Persistent Google-authenticated note",requestId:crypto.randomUUID()}})).status,200);
   const page=await request("/",{cookie});assert.ok(page.headers.get("content-security-policy").includes("script-src 'nonce-"));assert.ok((await page.text()).includes('<script nonce="'));
   for(const claims of [{email:"outsider@gmail.com"},{email_verified:false},{nonce:"wrong"},{email:"rep@example.org"}]) assert.equal((await finish(await flow(),claims)).status,403);
@@ -71,6 +72,9 @@ try {
   assert.equal((await finish(pending)).status,303,"pending sign-in survives a process restart");
   assert.equal((await request("/api/directory",{cookie})).status,200,"Google sessions survive restart");
   assert.equal((await(await request("/api/org/444444444",{cookie})).json()).savedNotes[0].body,"Persistent Google-authenticated note");
+  const persisted=await(await request("/api/org/444444444",{cookie})).json();
+  for(const key of ["contact","contactRole","email","phone","website","owner"]) assert.equal(persisted[key],org[key]);
+  assert.ok(persisted.savedNotes.some(n=>n.body==="Initial team context"),"initial note survives restart with profile data");
   const logout=await request("/logout",{cookie,method:"POST",headers:{Origin:origin}});assert.equal(logout.status,303);
   assert.equal((await request("/api/directory",{cookie})).status,401,"logout revokes the server session");
   const again=await finish(await flow());const current=again.headers.getSetCookie().find(v=>v.startsWith("crm_session=")).split(";")[0];

@@ -23,6 +23,14 @@ npm test
 
 Tests cover workflow timing, notes, revisions and retries, CSV parsing/mapping/validation, duplicate handling, imports, formula-safe exports, HTTP authentication, identity spoofing, CSRF, login throttling, Google token signatures/audience/issuer/expiry, state/nonce/PKCE, callback replay, approved emails, logout revocation, and persisted sessions, organizations and notes across server restart. Google tests use locally signed tokens and a local token/certificate server; they do not require real Google credentials.
 
+For browser acceptance checks, install Chromium with `pnpm exec playwright install chromium` and run `pnpm run test:ui`. This exercises rich record creation, initial notes, profile edits, email search, directory contact details, mobile creation, invalid input, and unsaved-form protection through the actual UI. CI runs it with a signed local Google fixture.
+
+## Adding organizations
+
+**Organizations → Add organization** captures the primary contact and organization together. Name and EIN are required. Optional fields include contact name/role, working email, phone, email permission and evidence, website, mailing address, focus area, assigned rep, and an initial team note. Expand **More organization details & research** for mission, reported revenue/tax period, an unverified email candidate, and research notes/source. These fields remain editable in the profile.
+
+Choose Available or the first-call queue when creating the record. The organization and initial note save together in one transaction; retries do not duplicate either. Invalid fields leave the form intact for correction. The directory shows working email, contact/phone, assigned rep, and workflow state; search includes contact details and owner. Email and phone links are available from the directory and profile. Candidate emails remain separate, and zero reported revenue is displayed as zero.
+
 ## Daily work and status updates
 
 Open a queue or search Organizations, then choose **Update status**. The form offers outcomes valid for the current stage, including Not connected, email requested, callback requested, meeting booked, not interested, wrong number, dial failed, and do not contact. Saving records an attributed activity and changes the next action together. Stale concurrent changes are rejected. Stopped records have no outreach actions.
